@@ -4,25 +4,50 @@
 install.packages('tidyverse'); install.packages('vegan')
 install.packages('MASS');install.packages("devtools"); devtools::install_github("gavinsimpson/ggvegan")
 install.packages("ggrepel"); install.packages('ggplot2');install.packages('dplyr'); install.packages('scales')
-install.packages('viridis')
+install.packages('viridis'); install.packages('lme4')
 
 
 library('ggvegan'); library('tidyverse'); 
-library('MASS');library('ggplot2');  library('scales')
-library('viridis')
+library('MASS');  library('scales')
+library('viridis'); library('lme4')
 
-setwd("C:/Users/Julia Michaels/Google Drive/Dissertation Chapter 2/")
+setwd("C:\\Users\\Julia Michaels\\Google Drive\\Dissertation Chapter 2\\Chapter_2_Analysis")
 
 
+
+# Load data ---------------------------------------------------------------
+calibration<-read.csv("2018 Inundation_Stopping 2018-03-19.csv")
+data_loggers_2018<-read.csv('2018_Levelloggers.csv')
+staff_gauge_2018<-read.csv('2017-2018 Staff Gauges All.csv')
+precip_2018<-read.csv('precipitation data_2018.csv')#in cm
+days_2018<-read.csv("2018_Master_List.csv")
+data_loggers_2017<-read.csv('2017_Levelloggers.csv')
+staff_gauge_2017<-read.csv('2016-2017 Staff Gauges.csv') 
+Calibrated_2018<-read.csv("2018_Calibrated.csv")
+Calibrated_2017<-read.csv("2017_Calibrated.csv")
+data_loggers_2016<-read.csv('2016_Levelloggers.csv')
+staff_gauge_2016<-read.csv('2015-2016 Staff Gauges All.csv')
+days_2016<-read.csv("2016_Master_List.csv")
+all_years_combined<-read.csv("All_Years_Master_List.csv") 
+transect_data<-read.csv("2016-2018-Vegetation-Transects_Cleaned.csv") 
+days_2017<-read.csv("2017_Master_List.csv")
+qdata<-read.csv("2017-2018 Vegetation Quadrats.csv",fileEncoding="UTF-8-BOM")
+
+# Calculate total precipitation -------------------------------------------------
+
+#2018
+precip_2018_by_day<-precip_2018 %>%
+  group_by(Date) %>% 
+  summarize(rainfall=mean(Precip, na.rm = TRUE)) %>% 
+  slice(2:n())
+#2017- NEED TO DOWNLOAD
+#2016- NEED TO DOWNLOAD
 
 # Calibration method ------------------------------------------------------
 
-
-#Step 1: Prove that calibration method works
-calibration<-read.csv("2018 Inundation_Stopping 2018-03-19.csv")
+#Prove that calibration method works using 2018 data
 fit_DL<-lm(Calibrated.Days ~ SG.Days, data = calibration[calibration$Method=='Data Logger',])
 fit_Cal<-lm(Calibrated.Days ~ SG.Days, data = calibration[calibration$Method=='Calibrated Staff Gauge',])
-
 
 ggplot(data=calibration, aes(x=Calibrated.Days, y=SG.Days))+
   geom_point(aes(color = Method))+
@@ -40,14 +65,7 @@ ggplot(data=calibration, aes(x=Calibrated.Days, y=SG.Days))+
                            " \nSlope =",signif(fit_Cal$coef[[2]], 5),
                            " \nP =",signif(summary(fit_Cal)$coef[2,4], 5)))
 
-
-
 # Calibrate 2018 hydro data --------------------------------------------------------------------
-
-
-data_loggers_2018<-read.csv('2018_Levelloggers.csv')
-staff_gauge_2018<-read.csv('2017-2018 Staff Gauges All.csv') 
-
 
 DL<-data_loggers_2018%>%              #Average hourly datalogger data by day
   group_by(Date) %>% 
@@ -75,10 +93,7 @@ total_days_dl<-tibble(dl_days=dl_days_inundation, Pool.ID=colnames(DL))
 compare<-full_join(total_days_sg, total_days_dl) %>% 
   mutate(difference=dl_days-sg_days)
 
-
 ##The data logger totals are consistently higher than the staff gauge (except for D5-01)
-
-
 #Now the problem is that we still have a lot of staff gauge pools that didn't have data
 #loggers, so we graph each staff gauge pool against all the data loggers to find a pool that 
 #behaves similarly
@@ -121,8 +136,6 @@ ggplot(joined, mapping=aes(joined$Date, joined$C2.10.x, group=1))+
 geom_point(mapping=aes(joined$Date, joined$C2.14.y, color="red"))
 
 #to check, plot 
-
-
 #Here is the list of equivalent pool comparisons
 ##AKA "Calibrated Total Days"
 #C2-16=D5.39
@@ -155,83 +168,65 @@ geom_point(mapping=aes(joined$Date, joined$C2.14.y, color="red"))
 #C2-15=Too hard to tell, only one point
 #D5.05- 1 point only, not enough
 
-#Is thia code necessary?
-#veg<-read.csv("2017-2018 Vegetation Quadrats.csv")
-#inundation<-read.csv("2018 Inundation Master List.csv") %>% 
-#  select(Pool.ID, Calibrated.Total.Days)
-#v<-right_join(veg, inundation) %>% 
-#write.csv("Calibrated total days 2018.csv")
-
-#Based on calibrated days of inundation, compare by grazing
-
-days_2018<-read.csv("2018_Master_List.csv")%>% 
+#Based on calibrated days of inundation, compare grazing treatments
+days_2018<-days_2018%>% 
   filter(Pair.Paper.2 %in% c(1:17)) 
-
 summary(aov(Calibrated.Days~Treatment, days_2018))
-
 compare_2018<-ggplot(days_2018, mapping=aes(x=Treatment, y=Calibrated.Days))+
   geom_boxplot()
 
+summary(aov(Calibrated.Days~Treatment, days_2018))
 
-
-#graph average hydrograph by treatment
-
+#Graph average hydrograph by treatment
 #divide into grazed/newly grazed/ungrazed
 #ungrazed
-DL<-read.csv("2018_Calibrated.csv")%>%
-  filter(Pair.Paper.2 %in% c(1:17)) 
+DL<-Calibrated_2018 %>% 
   group_by(Date) %>% 
   summarise_all(funs(median)) 
-
+#DL$Date<-as.Date(DL$Date)
 ungrazed <- DL[,colnames(DL) %in% days_2018$Pool.ID[days_2018$Treatment == 'Ungrazed']]
 ungrazed_days<-cbind(Date=DL$Date, ungrazed)
-
 #average each row
 ug_days<-c()
 for(i in 1:nrow(ungrazed_days)){
   ug_days[i]<-rowMeans(ungrazed_days[i,2:ncol(ungrazed_days)],na.rm = TRUE)
 }
-
 ungrazed<-mean<-tibble (
   Date=ungrazed_days$Date, 
   Level=ug_days)
-
 #newly grazed
 newgrazed <- DL[,colnames(DL) %in% days_2018$Pool.ID[days_2018$Treatment == 'New Grazed']]
 newgrazed_days<-cbind(Date=DL$Date, newgrazed)
-
 #average each row
 ng_days<-c()
 for(i in 1:nrow(newgrazed_days)){
   ng_days[i]<-rowMeans(newgrazed_days[i,2:ncol(newgrazed_days)], na.rm = TRUE)
 }
-
 newgrazed<-mean<-tibble (
   Date=newgrazed_days$Date, 
   Level=ng_days)
-
-
 #grazed
 grazed <- DL[,colnames(DL) %in% days_2018$Pool.ID[days_2018$Treatment == 'Grazed']]
 grazed_days<-cbind(Date=DL$Date, grazed)
-
 #average each row
 g_days<-c()
 for(i in 1:nrow(grazed_days)){
   g_days[i]<-rowMeans(grazed_days[i,2:ncol(grazed_days)])
 }
-
 grazed<-mean<-tibble (
   Date=grazed_days$Date, 
   Level=g_days)
-
-
 #graph
 ggplot(data=ungrazed, mapping=aes(x=Date, y=Level))+
-  geom_line(aes(x=Date, y=Level, group=1), color='blue', size=.75)+
-  geom_line(data=newgrazed, aes(x=Date, y=Level, group=1), color='turquoise', size=.75)+
-  geom_line(data=grazed, aes(x=Date, y=Level, group=1), color='maroon', size=.75)+
-  geom_hline(yintercept=0, color='grey63')+
+  geom_line(aes(x=Date, y=Level, color="Ungrazed", group=1), size=.75)+
+  geom_line(data=newgrazed, aes(x=Date, y=Level, color="Newly Grazed", group=1), size=.75)+
+  geom_line(data=grazed, aes(x=Date, y=Level, color='Continuously Grazed', group=1), size=.75)+
+  geom_line(data=precip_2018_by_day, mapping=aes(x=Date, y=rainfall, linetype="Precipitation",group=1))+
+  scale_linetype_manual(name="", 
+                        values=c("Precipitation"="dashed"))+
+  scale_color_manual(name = "", 
+                     values = c("Ungrazed" = "blue", "Newly Grazed" = "turquoise", "Continuously Grazed"="maroon"))+
+  geom_hline(yintercept=0, color='grey16')+
   theme(plot.title=element_text(hjust=.5))+
   theme(axis.text.y=element_text(size=10))+
   scale_y_continuous(name="Level (cm)")+
@@ -247,11 +242,8 @@ ggplot(data=ungrazed, mapping=aes(x=Date, y=Level))+
   theme(axis.text.y =element_text(size=20))
 
 
+
 # Calibrate 2017 hydro data -----------------------------------------------
-
-data_loggers_2017<-read.csv('2017_Levelloggers.csv')
-staff_gauge_2017<-read.csv('2016-2017 Staff Gauges.csv') 
-
 
 DL2017<-data_loggers_2017%>%              #Average hourly datalogger data by day
   group_by(Date) %>% 
@@ -279,8 +271,7 @@ for(i in 2:ncol(DL2017)){
 total_days_dl<-tibble(dl_days=dl_days_inundation_2017, Pool.ID=colnames(DL2017))
 
 compare<-full_join(total_days_sg, total_days_dl) %>% 
-  mutate(difference=dl_days-sg_days) %>% 
-  write.csv("x.csv")
+  mutate(difference=dl_days-sg_days)
 
 ##The data logger totals are consistently higher than the staff gauge
 ggplot(joined2017, mapping=aes(joined2017$Date, joined2017$C2.14.x, group=1))+
@@ -323,22 +314,84 @@ geom_line(mapping=aes(joined2017$Date, joined2017$E5.27.x))+
   geom_point(mapping=aes(joined2017$Date, joined2017$D5.10, color="red"))
 
 
-days_2017<-read.csv("2017_Master_List.csv")
-
+#Compare calibrated days in 2017
 compare_2017<-ggplot(days_2017, mapping=aes(x=Treatment, y=Calibrated.Days))+
   geom_boxplot()
 compare_2017
 summary(aov(Calibrated.Days~Treatment, days_2017))
 
 
+###graph all 2017
+#divide into grazed/newly grazed/ungrazed
+#ungrazed
+DL<-Calibrated_2017 %>% 
+  group_by(Date) %>% 
+  summarise_all(funs(median)) 
+#DL$Date<-as.Date(DL$Date)
+ungrazed <- DL[,colnames(DL) %in% days_2017$Pool.ID[days_2017$Treatment == 'Ungrazed']]
+ungrazed_days<-cbind(Date=DL$Date, ungrazed)
+#average each row
+ug_days<-c()
+for(i in 1:nrow(ungrazed_days)){
+  ug_days[i]<-rowMeans(ungrazed_days[i,2:ncol(ungrazed_days)],na.rm = TRUE)
+}
+ungrazed<-mean<-tibble (
+  Date=ungrazed_days$Date, 
+  Level=ug_days)
 
-# Calibrate 2016 hyrdo data -----------------------------------------------
+#newly grazed
+newgrazed <- DL[,colnames(DL) %in% days_2017$Pool.ID[days_2017$Treatment == 'New Grazed']]
+newgrazed_days<-cbind(Date=DL$Date, newgrazed)
+#average each row
+ng_days<-c()
+for(i in 1:nrow(newgrazed_days)){
+  ng_days[i]<-rowMeans(newgrazed_days[i,2:ncol(newgrazed_days)], na.rm = TRUE)
+}
+newgrazed<-mean<-tibble (
+  Date=newgrazed_days$Date, 
+  Level=ng_days)
+#grazed
+grazed <- DL[,colnames(DL) %in% days_2017$Pool.ID[days_2017$Treatment == 'Grazed']] ###NOT SURE WHY THIS DOESNT WORK
+grazed_days<-cbind(Date=DL$Date, grazed)
+
+#average each row
+g_days<-c()
+for(i in 1:nrow(grazed_days)){
+  g_days[i]<-rowMeans(grazed_days[i,2:ncol(grazed_days)], na.rm = TRUE)
+}
+
+grazed<-mean<-tibble (
+  Date=grazed_days$Date, 
+  Level=g_days)
 
 
-data_loggers_2016<-read.csv('2016_Levelloggers.csv')
-staff_gauge_2016<-read.csv('2015-2016 Staff Gauges All.csv') 
+#graph
+ggplot(data=ungrazed, mapping=aes(x=Date, y=Level))+
+  geom_line(aes(x=Date, y=Level, color="Ungrazed", group=1), size=.75)+
+  geom_line(data=newgrazed, aes(x=Date, y=Level, color="Newly Grazed", group=1), size=.75)+
+  geom_line(data=grazed, aes(x=Date, y=Level, color='Continuously Grazed', group=1), size=.75)+
+ # geom_line(data=precip_2017_by_day, mapping=aes(x=Date, y=rainfall, linetype="Precipitation",group=1))+
+ # scale_linetype_manual(name="", 
+                 #       values=c("Precipitation"="dashed"))+
+  scale_color_manual(name = "", 
+                     values = c("Ungrazed" = "blue", "Newly Grazed" = "turquoise", "Continuously Grazed"="maroon"))+
+  geom_hline(yintercept=0, color='grey16')+
+  theme(plot.title=element_text(hjust=.5))+
+  theme(axis.text.y=element_text(size=10))+
+  scale_y_continuous(name="Level (cm)")+
+  theme(axis.text.x = element_text(angle=25, size=10))+
+  scale_x_discrete(breaks = ungrazed$Date[seq(1, length(grazed$Date), by = 30)])+
+  labs(title="Average Vernal Pool Depth by Grazing, 2016-2017", y="Pool Depth", x="Date")+
+  theme(plot.title=element_text(size=30, hjust=.5))+
+  theme(axis.title.x =element_text(size=30))+
+  theme(axis.title.y =element_text(size=30))+
+  theme(legend.title =element_text(size=30))+
+  theme(legend.text =element_text(size=30))+
+  theme(axis.text.x =element_text(size=20))+
+  theme(axis.text.y =element_text(size=20))
 
 
+# Calibrate 2016 hydro data -----------------------------------------------
 DL2016<-data_loggers_2016%>%              #Average hourly datalogger data by day
   group_by(Date) %>% 
   summarise_all(funs(median)) 
@@ -372,12 +425,11 @@ for(i in 2:ncol(DL2016)){
 total_days_dl<-tibble(dl_days=dl_days_inundation_2016, Pool.ID=colnames(DL2016))
 
 compare<-full_join(total_days_sg, total_days_dl) %>% 
-  mutate(difference=dl_days-sg_days) %>% 
-  write.csv("y.csv") 
+  mutate(difference=dl_days-sg_days)
 
 
 ggplot(joined2016, mapping=aes(joined2016$Date, joined2016$B3.92.x, group=1))+
-  #geom_line()+ #DONT USE
+  #geom_line()+ 
   geom_line(mapping=aes(joined2016$Date, joined2016$C2.11.x))+ #BROKEN?
   #geom_line(mapping=aes(joined2016$Date, joined2016$C2.14.x))+ #BROKEN?
   #geom_line(mapping=aes(joined2016$Date, joined2016$E5.30.x))+ #DONT USE
@@ -403,19 +455,88 @@ ggplot(joined2016, mapping=aes(joined2016$Date, joined2016$B3.92.x, group=1))+
 # geom_point(mapping=aes(joined2016$Date, joined2016$B3.92, color="red"))
 
 
-days_2016<-read.csv("2016_Master_List.csv")
-
 compare_2016<-ggplot(days_2016, mapping=aes(x=Treatment, y=Calibrated.Days))+
   geom_boxplot()
-
 summary(aov(Calibrated.Days~Treatment, days_2016))
+###graph all 2016
+#divide into grazed/newly grazed/ungrazed
+#ungrazed
+DL<-data_loggers_2016 %>% 
+  group_by(Date) %>% 
+  summarise_all(funs(median)) 
+
+#DL$Date<-as.Date(DL$Date)
+ungrazed <- DL[,colnames(DL) %in% days_2016$Pool.ID[days_2016$Treatment == 'Ungrazed']]
+ungrazed_days<-cbind(Date=DL$Date, ungrazed)
+
+#average each row
+ug_days<-c()
+for(i in 1:nrow(ungrazed_days)){
+  ug_days[i]<-rowMeans(ungrazed_days[i,2:ncol(ungrazed_days)],na.rm = TRUE)
+}
+
+ungrazed<-mean<-tibble (
+  Date=ungrazed_days$Date, 
+  Level=ug_days)
+
+#newly grazed
+newgrazed <- DL[,colnames(DL) %in% days_2016$Pool.ID[days_2016$Treatment == 'Newly Grazed']] ###WHY DOESNT THIS SUBSET???
+newgrazed_days<-cbind(Date=DL$Date, newgrazed)
+
+#average each row
+ng_days<-c()
+for(i in 1:nrow(newgrazed_days)){
+  ng_days[i]<-rowMeans(newgrazed_days[i,2:ncol(newgrazed_days)], na.rm = TRUE)
+}
+
+newgrazed<-mean<-tibble (
+  Date=newgrazed_days$Date, 
+  Level=ng_days)
 
 
+#grazed
+grazed <- DL[,colnames(DL) %in% days_2016$Pool.ID[days_2016$Treatment == 'Grazed']]
+grazed_days<-cbind(Date=DL$Date, grazed)
+
+#average each row
+g_days<-c()
+for(i in 1:nrow(grazed_days)){
+  g_days[i]<-rowMeans(grazed_days[i,2:ncol(grazed_days)])
+}
+
+grazed<-mean<-tibble (
+  Date=grazed_days$Date, 
+  Level=g_days)
 
 
-# Compare calibrated inundation days over all years ----------------------------
+#graph
+ggplot(data=ungrazed, mapping=aes(x=Date, y=Level))+
+  geom_line(aes(x=Date, y=Level, color="Ungrazed", group=1), size=.75)+
+  geom_line(data=newgrazed, aes(x=Date, y=Level, color="Newly Grazed", group=1), size=.75)+
+  geom_line(data=grazed, aes(x=Date, y=Level, color='Continuously Grazed', group=1), size=.75)+
+  # geom_line(data=precip_2016_by_day, mapping=aes(x=Date, y=rainfall, linetype="Precipitation",group=1))+
+  scale_linetype_manual(name="", 
+                        values=c("Precipitation"="dashed"))+
+  scale_color_manual(name = "", 
+                     values = c("Ungrazed" = "blue", "Newly Grazed" = "turquoise", "Continuously Grazed"="maroon"))+
+  geom_hline(yintercept=0, color='grey16')+
+  theme(plot.title=element_text(hjust=.5))+
+  theme(axis.text.y=element_text(size=10))+
+  scale_y_continuous(name="Level (cm)")+
+  theme(axis.text.x = element_text(angle=25, size=10))+
+  scale_x_discrete(breaks = ungrazed$Date[seq(1, length(ungrazed$Date), by = 30)])+
+  labs(title="Average Vernal Pool Depth by Grazing, 2016-2016", y="Pool Depth", x="Date")+
+  theme(plot.title=element_text(size=30, hjust=.5))+
+  theme(axis.title.x =element_text(size=30))+
+  theme(axis.title.y =element_text(size=30))+
+  theme(legend.title =element_text(size=30))+
+  theme(legend.text =element_text(size=30))+
+  theme(axis.text.x =element_text(size=20))+
+  theme(axis.text.y =element_text(size=20))
 
-all_years_combined<-read.csv("All_Years_Master_List.csv") 
+
+# Compare all years  calibrated inundation ----------------------------
+
 all_years_combined$Year<-as.factor(all_years_combined$Year)
 all_years<-all_years_combined%>%
   filter(Pair.Paper.2 %in% c(1:17)) %>% 
@@ -423,6 +544,7 @@ all_years<-all_years_combined%>%
   summarize(days=mean(Calibrated.Days, na.rm = TRUE), sd=sd(Calibrated.Days, na.rm = TRUE), 
             sem = sd(Calibrated.Days, na.rm = TRUE)/sqrt(length(Calibrated.Days)))
 all_years$Year<-as.factor(all_years$Year)
+
 
 plot<-ggplot(data=all_years, aes(x=Year, y=days, group=Treatment))+
   geom_line(aes(color=Treatment), size=1.5)+
@@ -436,37 +558,27 @@ plot<-ggplot(data=all_years, aes(x=Year, y=days, group=Treatment))+
   theme(axis.title.y =element_text(size=30))+
   theme(legend.title =element_text(size=30))+
   theme(legend.text =element_text(size=30))+
-  theme(axis.text =element_text(size=30))
+  theme(axis.text =element_text(size=30))+
+  geom_vline(aes(xintercept=2), colour="#990000", linetype="dashed")+
+  annotate("text", x = 2, y =55, label = "Grazing introduced")+
+  annotate("text", x = 2, y =50, label = "to 'New Grazed'")
 
 plot
 
+
+
 #Inundation period by grazing and year
-anova<-aov(Calibrated.Days~Treatment*Year, all_years_combined)
+anova<-aov(Calibrated.Days~Treatment+Year, all_years_combined)
 summary(anova)
 TukeyHSD(anova)
+install.packages('lmerTest'); library(lmerTest)
+m2<-lmer(Calibrated.Days~Treatment*Year+(1|Pool.ID), data=all_years_combined)
+summary(anova2)
+TukeyHSD(anova2)
 
 inundation_days <- lm(Calibrated.Days ~ Treatment+Year+Size+Soil.Type, data=all_years_combined) 
-summary(inundation_days)
+summary(aov(inundation_days))
 hist(residuals(inundation_days))
-
-
-
-#2018 inundation period by grazing and other abiotic characteristics
-qdata<-read.csv("2017-2018 Vegetation Quadrats.csv",fileEncoding="UTF-8-BOM")
-qdata$Catchment<-as.character(qdata$Catchment)
-qdata$Catchment<-as.numeric(qdata$Catchment)
-specid<-read.csv("SpecID.csv", fileEncoding="UTF-8-BOM")
-qdata_separate<-qdata[-39,] #remove 39 if lookng at samples separately
-
-species<-dplyr::select(qdata_separate, -(Quadrat:Inundation.Type)) %>%  #average the three quadrat samples
-  group_by(Pool.ID)%>%
-  summarise_all(funs(mean))
-
-pool_info<-qdata_separate %>% group_by(Pool.ID) %>% 
-  filter(row_number()==1) %>% 
-  dplyr::select(Pool.ID:Inundation.Type, -Quadrat)
-
-qdata<-right_join(pool_info, species)#combine community data with pool characteristics
 
 
 #RDM by grazing
@@ -483,7 +595,7 @@ ggplot(data=qdata, aes(x=Grazing,y=RDM, fill=Grazing))+
 
 summary(aov(RDM~Grazing, qdata))
 
-#RDM by grazing
+#Pool size by grazing
 ggplot(data=qdata, aes(x=Grazing,y=Size, fill=Grazing))+
   geom_boxplot()+
   labs(title="Pool Size by Grazing", y="Size", x="Grazing")+
@@ -519,10 +631,9 @@ hist(residuals(inundation_days2))
 
 
 
-
 # Transect data -----------------------------------------------------------
 
-transect_data<-read.csv("2016-2018-Vegetation-Transects_Cleaned.csv") %>% 
+transect_data<-transect_data%>% 
   filter(Pair.P2 %in% c(1:11)) 
 #Trans_2018<-filter(transect_data, Pair.P2 %in% c(1:12), Year=="2018")
 #head(Trans_2018)
@@ -651,6 +762,24 @@ ggplot(data=native_cover, aes(x=Year,y=native, fill=Grazing))+
 
 # 2018 Quadrats in Transition Zones ----------------------------------------------------------------
 
+
+#2018 Quadrats in Transition Zones
+qdata$Catchment<-as.character(qdata$Catchment)
+qdata$Catchment<-as.numeric(qdata$Catchment)
+specid<-read.csv("SpecID.csv", fileEncoding="UTF-8-BOM")
+qdata_separate<-qdata[-39,] #remove 39 if lookng at samples separately
+
+species<-dplyr::select(qdata_separate, -(Quadrat:Inundation.Type)) %>%  #average the three quadrat samples
+  group_by(Pool.ID)%>%
+  summarise_all(funs(mean))
+
+pool_info<-qdata_separate %>% group_by(Pool.ID) %>% 
+  filter(row_number()==1) %>% 
+  dplyr::select(Pool.ID:Inundation.Type, -Quadrat)
+
+qdata<-right_join(pool_info, species)#combine community data with pool characteristics
+
+
 #Calculate diversity indices
 
 #species richness
@@ -688,15 +817,39 @@ for(i in 1:nrow(qdata)){
 
 #create data frame with all community metrics
 transition_diversity <- data.frame(qdata, spec_rich,shannon, rel_cov_nat)
-write.csv("Transition_diversity.csv")
 
-#Plot Species richness by grazing
-ggplot(data=transition_diversity, aes(x=Grazing,y=spec_rich))+
+
+# plot all 
+transition_diversity_plot<-read.csv("transition_diversity.csv") %>%
+  group_by(Pool.ID, Metric, Grazing, Value) %>% 
+  summarize(days=mean(Value, na.rm = TRUE))
+transition_diversity_plot
+
+anova1<-aov(spec_rich~Grazing, transition_diversity)
+summary(anova1)
+
+TukeyHSD(anova1)
+TukeyHSD(aov(shannon~Grazing, transition_diversity))
+TukeyHSD(aov(rel_cov_nat~Grazing, transition_diversity))
+
+plot<-transition_diversity_plot%>% 
+  ggplot(aes(x=Grazing, y=Value, fill=Grazing))+
   geom_boxplot()+
-  
-  ggtitle("Species Richness by Grazing")
+  facet_wrap(~Metric, scales="free_y")+
+  scale_fill_manual(values=c("maroon", "turquoise", "blue"))+
+  theme(plot.title=element_text(size=20, hjust=.5))+
+  theme(legend.title =element_text(size=30))+
+  theme(legend.text =element_text(size=30))+
+  theme(axis.text =element_text(size=20))+
+  theme(strip.text = element_text(size=17))+
+  theme(axis.title.y  = element_blank())+
+  theme(axis.title.x  = element_blank())+
+  theme(axis.text.x  = element_blank())+
+  theme(axis.text.y  = element_text(size=30))
 
-summary(aov(spec_rich~Grazing*Calibrated.Total.Days, transition_diversity))
+plot
+
+
 
 #Plot Species richness by days of inundation and treatment 
 ggplot(data=transition_diversity, aes(x=Calibrated.Total.Days,y=spec_rich, colour=Grazing))+
@@ -706,6 +859,20 @@ ggplot(data=transition_diversity, aes(x=Calibrated.Total.Days,y=spec_rich, colou
   stat_smooth(method='lm', se=FALSE, fullrange = TRUE, size=2)+
   labs(title="Species Richness by Days of Inundation and Grazing", y="Species Richness", x="Days of Inundation")+
   theme(plot.title=element_text(size=30, hjust=.5))+
+  theme(axis.title.x =element_text(size=30))+
+  theme(axis.title.y =element_text(size=30))+
+  theme(legend.title =element_text(size=30))+
+  theme(legend.text =element_text(size=30))+
+  theme(axis.text =element_text(size=30))
+
+#Plot Species richness by days of hoofprint count and treatment 
+ggplot(data=transition_diversity, aes(x=Hoofprint,y=spec_rich, colour=Grazing))+
+  #geom_jitter()+
+  scale_color_manual(values=c("maroon", "turquoise", "blue"))+
+  geom_point(mapping=aes(group=cut_width(Calibrated.Total.Days, 15)), size=4)+
+  stat_smooth(method='lm', se=FALSE, fullrange = TRUE, size=2)+
+  labs(title="Species Richness by Hoofprint Count and Grazing", y="Species Richness", x="Hoofprint Count")+
+  theme(plot.title=element_text(size=20, hjust=.5))+
   theme(axis.title.x =element_text(size=30))+
   theme(axis.title.y =element_text(size=30))+
   theme(legend.title =element_text(size=30))+
@@ -761,7 +928,9 @@ ggplot(data=transition_diversity, aes(x=Calibrated.Total.Days,y=rel_cov_nat, col
 
 ###Linear model: native cover by grazing and inundation (Staff gauge)
 linearMod1 <- lm(rel_cov_nat ~ Calibrated.Total.Days*Grazing, data=transition_diversity) 
-summary(linearMod1)
+summary(linearMod1)#individual coeffeicients fitted to the model
+summary(aov(linearMod1))#asking if the grazing treatments are different
+
 hist(residuals(linearMod1))
 
 
